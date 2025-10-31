@@ -6,9 +6,6 @@ venv/
 /venv/
 __pycache__/
 *.pyc
-
-# Local settings and secrets file
-# IMPORTANT: Never commit your API keys or secrets!
 .env
 .env.*
 
@@ -16,11 +13,6 @@ __pycache__/
 *.sqlite3
 *.db
 
-
-# --- React frontend / Node.js ---
-
-# Node modules folder
-# This is usually a very large folder and can be reinstalled from package.json
 frontend/node_modules/
 /node_modules/
 
