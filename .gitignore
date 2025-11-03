@@ -23,8 +23,6 @@ __pycache__/
 # This is usually a very large folder and can be reinstalled from package.json
 frontend/node_modules/
 /node_modules/
-node_modules/
-
 
 # Build output
 frontend/dist/
