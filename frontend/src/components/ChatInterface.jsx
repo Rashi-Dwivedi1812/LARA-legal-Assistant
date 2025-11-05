@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Send, User, Bot, Scale, Sparkles, BookOpen, Gavel, MessageSquare, Shield, FileText, Users, Award, LogOut } from 'lucide-react';
+import { Send, User, Bot, Scale, Sparkles, BookOpen, Gavel, MessageSquare, Shield, FileText, Users, Award, LogOut, History } from 'lucide-react';
 import axios from 'axios';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import FloatingParticles from './FloatingParticles';
 import FloatingImages from './FloatingImages';
+import ChatHistorySidebar from './ChatHistorySidebar';
 import { UserButton } from "@clerk/clerk-react";
+
 function ChatInterface() {
   const [query, setQuery] = useState('');
   const [userRole, setUserRole] = useState('citizen');
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [threadId, setThreadId] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentThreadFilter, setCurrentThreadFilter] = useState(null);
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+
   const { user } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
@@ -22,13 +28,25 @@ function ChatInterface() {
   };
 
   useEffect(() => {
-    setThreadId(crypto.randomUUID());
+    const newThreadId = crypto.randomUUID();
+    setThreadId(newThreadId);
     setMessages([{
       id: crypto.randomUUID(),
       type: 'bot',
       content: `Welcome ${user?.firstName || 'back'} to L.A.R.A! I am your AI Legal Assistant. How can I help you today? Please select your role and ask a question below.`,
       timestamp: new Date()
     }]);
+
+    // Save new thread immediately when user logs in or component mounts
+    if (user) {
+      axios.post('http://127.0.0.1:8000/save_thread', {
+        user_id: user.id,
+        thread_id: newThreadId,
+        title: 'New Chat'
+      }).catch(error => {
+        console.error('Error saving new thread:', error);
+      });
+    }
   }, [user]);
 
   const handleSubmit = async (e) => {
@@ -62,11 +80,20 @@ function ChatInterface() {
       };
       setMessages(prev => [...prev, botMessage]);
 
+      // Save thread to database after first message with proper title
+      if (messages.length === 1 && user) { // Only the welcome message exists
+        await axios.post('http://127.0.0.1:8000/save_thread', {
+          user_id: user.id,
+          thread_id: threadId,
+          title: currentQuery.length > 50 ? currentQuery.substring(0, 50) + '...' : currentQuery
+        });
+      }
+
     } catch (error) {
       console.error("Error fetching response from backend:", error);
       const errorMsg = error.response?.data?.detail || error.message || 'Server unavailable';
 
-      
+
       const errorMessage = {
         id: crypto.randomUUID(),
         type: 'bot',
@@ -82,13 +109,40 @@ function ChatInterface() {
   };
 
   const clearChat = () => {
+    const newThreadId = crypto.randomUUID();
     setMessages([{
       id: crypto.randomUUID(),
       type: 'bot',
       content: `Welcome ${user?.firstName || 'back'} to L.A.R.A! I am your AI Legal Assistant. How can I help you today? Please select your role and ask a question below.`,
       timestamp: new Date()
     }]);
-    setThreadId(crypto.randomUUID());
+    setThreadId(newThreadId);
+    setCurrentThreadFilter(newThreadId); // Filter to show only this new thread
+
+    // Save new thread for new chat
+    if (user) {
+      axios.post('http://127.0.0.1:8000/save_thread', {
+        user_id: user.id,
+        thread_id: newThreadId,
+        title: 'New Chat'
+      }).catch(error => {
+        console.error('Error saving new thread:', error);
+      });
+    }
+  };
+
+  const handleThreadSelect = (newThreadId, threadMessages) => {
+    setThreadId(newThreadId);
+    setMessages(threadMessages);
+    setCurrentThreadFilter(null); // Clear filter when selecting from history
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+    if (!isSidebarOpen) {
+      setCurrentThreadFilter(null); // Clear filter when opening sidebar to show all history
+      setSidebarRefreshTrigger(prev => prev + 1); // Force sidebar re-render to fetch all threads
+    }
   };
 
   return (
@@ -126,6 +180,15 @@ function ChatInterface() {
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={toggleSidebar}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-2xl transition-all duration-300 backdrop-blur-md border border-gray-300 shadow-xl hover:shadow-2xl transform hover:scale-105 hover:-translate-y-0.5"
+              >
+                <div className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  History
+                </div>
+              </button>
+              <button
                 onClick={clearChat}
                 className="px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white font-bold rounded-2xl transition-all duration-300 backdrop-blur-md border border-gray-300 shadow-xl hover:shadow-2xl transform hover:scale-105 hover:-translate-y-0.5"
               >
@@ -134,7 +197,7 @@ function ChatInterface() {
                   New Chat
                 </div>
               </button>
-              <UserButton 
+              <UserButton
                 afterSignOutUrl="/sign-in"
                 appearance={{
                   elements: {
@@ -309,6 +372,16 @@ function ChatInterface() {
             </div>
           </div>
         </div>
+
+        {/* Chat History Sidebar */}
+        <ChatHistorySidebar
+          key={sidebarRefreshTrigger}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          onThreadSelect={handleThreadSelect}
+          currentThreadId={threadId}
+          currentThreadFilter={currentThreadFilter}
+        />
       </div>
     </div>
   );
