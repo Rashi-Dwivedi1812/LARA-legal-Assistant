@@ -13,9 +13,9 @@ from typing import TypedDict, Annotated, List, Any
 import operator
 from dotenv import load_dotenv
 
-# Load .env from the root directory
-root_dir = Path(__file__).resolve().parent.parent.parent
-load_dotenv(root_dir / '.env')
+# Load .env from the backend directory
+backend_dir = Path(__file__).resolve().parent.parent
+load_dotenv(backend_dir / '.env')
 
 
 # -------------------------

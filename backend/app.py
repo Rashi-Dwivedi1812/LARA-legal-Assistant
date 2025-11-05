@@ -7,6 +7,7 @@ from pydantic import BaseModel
 # This assumes your 'agent' folder is in the same 'backend' directory
 # and your Python path is set up correctly.
 from agent.router import route_query
+from db import save_thread, save_message, get_user_threads, get_thread_messages, delete_thread
 
 # ----------------------------
 #      1. INITIALIZATION
@@ -47,6 +48,17 @@ class QueryResponse(BaseModel):
     final_analysis: str
     thread_id: str
 
+class ChatHistoryRequest(BaseModel):
+    user_id: str
+
+class ThreadMessagesRequest(BaseModel):
+    thread_id: str
+
+class SaveThreadRequest(BaseModel):
+    user_id: str
+    thread_id: str
+    title: str = None
+
 
 # ----------------------------
 #      3. API ENDPOINTS
@@ -76,9 +88,13 @@ async def process_legal_query(request: QueryRequest):
 
         # Extract the final analysis from the result dictionary
         final_analysis = result.get(
-            "final_analysis", 
+            "final_analysis",
             "Sorry, I couldn't generate a final analysis."
         )
+
+        # Save messages to database
+        save_message(request.thread_id, 'user', request.user_query)
+        save_message(request.thread_id, 'bot', final_analysis)
 
         return QueryResponse(
             final_analysis=final_analysis,
@@ -92,6 +108,42 @@ async def process_legal_query(request: QueryRequest):
             status_code=500,
             detail=f"An error occurred while processing your request: {e}"
         )
+
+@app.post("/get_chat_history")
+async def get_chat_history(request: ChatHistoryRequest):
+    """Get all threads for a user."""
+    try:
+        threads = get_user_threads(request.user_id)
+        return {"threads": threads}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching chat history: {e}")
+
+@app.post("/get_thread_messages")
+async def get_thread_messages_endpoint(request: ThreadMessagesRequest):
+    """Get all messages for a thread."""
+    try:
+        messages = get_thread_messages(request.thread_id)
+        return {"messages": messages}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching thread messages: {e}")
+
+@app.post("/save_thread")
+async def save_thread_endpoint(request: SaveThreadRequest):
+    """Save a thread."""
+    try:
+        save_thread(request.user_id, request.thread_id, request.title)
+        return {"message": "Thread saved successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving thread: {e}")
+
+@app.delete("/delete_thread/{thread_id}")
+async def delete_thread_endpoint(thread_id: str):
+    """Delete a thread and its messages."""
+    try:
+        delete_thread(thread_id)
+        return {"message": "Thread deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting thread: {e}")
 
 # ----------------------------
 #      4. SERVER EXECUTION (for local testing)

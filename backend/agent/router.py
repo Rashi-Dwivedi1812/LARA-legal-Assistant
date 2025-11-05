@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 from agent.citizen_agent import app as citizen_app
 from agent.lawyer_agent import lawyer_app as lawyer_app
+from db import save_message, get_thread_messages
 
 load_dotenv()
 
@@ -18,21 +19,42 @@ def route_query(role: str, user_query: str, thread_id: str):
     Returns:
         The response from the invoked agent.
     """
+    # Load existing chat history for the thread
+    existing_messages = get_thread_messages(thread_id)
+    chat_history = []
+    for msg in existing_messages:
+        if msg['role'] == 'user':
+            chat_history.append({"role": "user", "content": msg['content']})
+        elif msg['role'] == 'bot':
+            chat_history.append({"role": "assistant", "content": msg['content']})
+
     # Create the initial state with the query and role
     input_state = {
         "query": user_query,
-        "chat_history": [],
+        "chat_history": chat_history,
         "intermediate_steps": [],
         "role": role,  # <-- Pass the role into the state
     }
 
     if role == "Lawyer":
         print("Routing to Lawyer Agent...")
-        return lawyer_app.invoke(
+        result = lawyer_app.invoke(
             input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
     else:
         print("Routing to Citizen Agent...")
-        return citizen_app.invoke(
+        result = citizen_app.invoke(
             input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
+
+    # Save messages to database after processing
+    from db import save_message
+    for message in result.get('chat_history', []):
+      save_message(
+        thread_id,
+        message.get("role") or message.get("type", "assistant"),  # fallback
+        message.get("content", "")
+    )
+
+
+    return result
