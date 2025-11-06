@@ -161,8 +161,8 @@ Meet the brilliant minds behind **L.A.R.A – Legal Analysis Research Assistant*
 
 | 👩‍💻 Name | 🎯 Contribution Focus | 🔗 Links |
 |------------|---------|----------|
-| 🧠 **Rashi Dwivedi** | Core Development • AI Workflow • Backend Systems | [![GitHub](https://img.shields.io/badge/GitHub-Rashi--Dwivedi1812-black?logo=github)](https://github.com/Rashi-Dwivedi1812) |
-| ⚙️ **Sachin Mishra** | RAG Pipeline • FAISS Indexing • Data Engineering | [![GitHub](https://img.shields.io/badge/GitHub-sachin--m15-black?logo=github)](https://github.com/sachin-m15) |
+| 🧠 **Rashi Dwivedi** | Core Development • Data Engineering • Backend Systems | [![GitHub](https://img.shields.io/badge/GitHub-Rashi--Dwivedi1812-black?logo=github)](https://github.com/Rashi-Dwivedi1812) |
+| ⚙️ **Sachin Mishra** | RAG Pipeline • FAISS Indexing • AI Workflow | [![GitHub](https://img.shields.io/badge/GitHub-sachin--m15-black?logo=github)](https://github.com/sachin-m15) |
 | 🧩 **Janvi Gupta** | Frontend Experience • Research Support • Documentation | [![GitHub](https://img.shields.io/badge/GitHub-janviii09-black?logo=github)](https://github.com/janviii09) |
 
 > 💡 *“Alone we can do so little; together we can do so much.” – Helen Keller*
