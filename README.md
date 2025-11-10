@@ -18,7 +18,7 @@ The system uses **LangGraph** for modular agent orchestration and **Retrieval-Au
 - **Iterative Legal Reasoning:** Dynamically refines its understanding of a legal problem and continues searching until it builds a complete answer.  
 - **Structured Legal Analysis:** Synthesizes case law, acts, and judgments into clear, referenced summaries.  
 - **Citation System:** Each generated report contains references to primary sources and acts for validation and research traceability.
-- **In-line Confidence Score:**Runs an in-line evaluator at the end of every query to provide a real-time "Confidence Score" (based on relevance, faithfulness, and clarity) directly to the user, building trust in the generated answer.
+- **In-line Confidence Score:** Runs an in-line evaluator at the end of every query to provide a real-time "Confidence Score" (based on relevance, faithfulness, and clarity) directly to the user, building trust in the generated answer.
 
 ---
 
