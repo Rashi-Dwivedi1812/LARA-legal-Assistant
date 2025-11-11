@@ -36,9 +36,6 @@ app.add_middleware(
 #      2. PYDANTIC MODELS
 # ----------------------------
 
-# These models define the expected structure of your API request body.
-# FastAPI uses them to validate incoming data and generate documentation.
-
 class QueryRequest(BaseModel):
     user_query: str
     role: str
