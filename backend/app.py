@@ -1,16 +1,15 @@
 import uuid
+import os  # <--- 1. IMPORT OS
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # --- Import your existing agent router ---
-# This assumes your 'agent' folder is in the same 'backend' directory
-# and your Python path is set up correctly.
 from agent.router import route_query
 from db import save_thread, save_message, get_user_threads, get_thread_messages, delete_thread
 
 # ----------------------------
-#      1. INITIALIZATION
+#       1. INITIALIZATION
 # ----------------------------
 
 app = FastAPI(
@@ -19,13 +18,24 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# --- Add CORS Middleware ---
-# This is crucial to allow your React frontend (running on a different port)
-# to communicate with this backend.
+# --- 2. GET ENVIRONMENT VARIABLES ---
+
+# Get your Vercel URL from the Render environment variable
+# It defaults to localhost:5173 if not set (for local testing)
+FRONTEND_URL = os.getenv("CORS_ORIGIN", "http://localhost:5173")
+
+# List of allowed origins
+origins = [
+    "http://localhost:5173",  # Local Vite dev
+    "http://localhost:3000",  # Local CRA dev
+    FRONTEND_URL              # Your deployed Vercel app
+]
+
+
+# --- 3. ADD CORS MIDDLEWARE ---
 app.add_middleware(
     CORSMiddleware,
-    # Adjust allow_origins to your React app's URL in production
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=origins,  # <--- USE THE DYNAMIC LIST HERE
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,7 +43,7 @@ app.add_middleware(
 
 
 # ----------------------------
-#      2. PYDANTIC MODELS
+#       4. PYDANTIC MODELS
 # ----------------------------
 
 class QueryRequest(BaseModel):
@@ -58,7 +68,7 @@ class SaveThreadRequest(BaseModel):
 
 
 # ----------------------------
-#      3. API ENDPOINTS
+#       5. API ENDPOINTS
 # ----------------------------
 
 @app.get("/")
@@ -76,14 +86,12 @@ async def process_legal_query(request: QueryRequest):
     print(f"Received query for thread_id: {request.thread_id}")
     try:
         # --- Call your core application logic ---
-        # This is the same function your Streamlit app was calling.
         result = route_query(
             role=request.role,
             user_query=request.user_query,
             thread_id=request.thread_id,
         )
 
-        # Extract the final analysis from the result dictionary
         final_analysis = result.get(
             "final_analysis",
             "Sorry, I couldn't generate a final analysis."
@@ -99,7 +107,6 @@ async def process_legal_query(request: QueryRequest):
         )
 
     except Exception as e:
-        # If anything goes wrong in your agent, send back a detailed error
         print(f"An error occurred: {e}")
         raise HTTPException(
             status_code=500,
@@ -143,11 +150,9 @@ async def delete_thread_endpoint(thread_id: str):
         raise HTTPException(status_code=500, detail=f"Error deleting thread: {e}")
 
 # ----------------------------
-#      4. SERVER EXECUTION (for local testing)
+#       6. SERVER EXECUTION
 # ----------------------------
 
-# This part allows you to run the file directly with `python app.py` for testing,
-# but the standard way to run a FastAPI app is with Uvicorn.
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
