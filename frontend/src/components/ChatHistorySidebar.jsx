@@ -8,6 +8,10 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
   const [loading, setLoading] = useState(false);
   const { user } = useUser();
 
+  // === THIS IS THE NEW LINE ===
+  // It automatically picks the right URL (Vercel or local)
+  const API_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+
   useEffect(() => {
     if (isOpen && user) {
       fetchChatHistory();
@@ -17,7 +21,8 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
   const fetchChatHistory = async () => {
     if (!user) return;
     try {
-      const response = await axios.post('http://127.0.0.1:8000/get_chat_history', {
+      // === CHANGED HERE ===
+      const response = await axios.post(`${API_URL}/get_chat_history`, {
         user_id: user.id
       });
       setThreads(response.data.threads);
@@ -28,7 +33,8 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
 
   const handleThreadSelect = async (thread) => {
     try {
-      const response = await axios.post('http://127.0.0.1:8000/get_thread_messages', {
+      // === CHANGED HERE ===
+      const response = await axios.post(`${API_URL}/get_thread_messages`, {
         thread_id: thread.thread_id
       });
 
@@ -49,7 +55,8 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
   const handleDeleteThread = async (threadId, e) => {
     e.stopPropagation();
     try {
-      await axios.delete(`http://127.0.0.1:8000/delete_thread/${threadId}`);
+      // === CHANGED HERE ===
+      await axios.delete(`${API_URL}/delete_thread/${threadId}`);
       setThreads(threads.filter(t => t.thread_id !== threadId));
     } catch (error) {
       console.error('Error deleting thread:', error);
@@ -57,6 +64,7 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
   };
 
   const handleNewChat = () => {
+    // This function doesn't make an API call, so no change is needed
     onThreadSelect(crypto.randomUUID(), []);
     onClose();
   };

@@ -22,6 +22,12 @@ function ChatInterface() {
   const { signOut } = useClerk();
   const navigate = useNavigate();
 
+  // === THIS IS THE NEW LINE ===
+  // It automatically uses the Vercel/Render URL when deployed,
+  // or your local URL when in development.
+  const API_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -39,7 +45,8 @@ function ChatInterface() {
 
     // Save new thread immediately when user logs in or component mounts
     if (user) {
-      axios.post('http://127.0.0.1:8000/save_thread', {
+      // === CHANGED HERE ===
+      axios.post(`${API_URL}/save_thread`, {
         user_id: user.id,
         thread_id: newThreadId,
         title: 'New Chat'
@@ -66,7 +73,8 @@ function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const result = await axios.post('http://127.0.0.1:8000/process_query', {
+      // === CHANGED HERE ===
+      const result = await axios.post(`${API_URL}/process_query`, {
         user_query: currentQuery,
         role: userRole,
         thread_id: threadId,
@@ -82,7 +90,8 @@ function ChatInterface() {
 
       // Save thread to database after first message with proper title
       if (messages.length === 1 && user) { // Only the welcome message exists
-        await axios.post('http://127.0.0.1:8000/save_thread', {
+        // === CHANGED HERE ===
+        await axios.post(`${API_URL}/save_thread`, {
           user_id: user.id,
           thread_id: threadId,
           title: currentQuery.length > 50 ? currentQuery.substring(0, 50) + '...' : currentQuery
@@ -121,7 +130,8 @@ function ChatInterface() {
 
     // Save new thread for new chat
     if (user) {
-      axios.post('http://127.0.0.1:8000/save_thread', {
+      // === CHANGED HERE ===
+      axios.post(`${API_URL}/save_thread`, {
         user_id: user.id,
         thread_id: newThreadId,
         title: 'New Chat'
@@ -145,12 +155,15 @@ function ChatInterface() {
     }
   };
 
+  // ... (The rest of your component's JSX stays exactly the same) ...
+  // ... (I've omitted it here for brevity, but you don't need to change it at all) ...
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 relative overflow-hidden">
       <FloatingParticles />
       <FloatingImages />
       
-      <div className="absolute inset-0 bg-gradient-to-t from-white/30 to-transparent pointer-events-none z-1" />      
+      <div className="absolute inset-0 bg-gradient-to-t from-white/30 to-transparent pointer-events-none z-1" />       
       <div className="relative z-10 flex flex-col h-screen">
         {/* Header */}
         <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-2xl">
@@ -351,7 +364,7 @@ function ChatInterface() {
               <button
                 onClick={handleSubmit}
                 disabled={!query.trim() || isLoading}
-                className="px-8 py-4 bg-gradient-to-r from-gray-700 via-gray-800 to-gray-900 hover:from-gray-800 hover:via-gray-900 hover:to-black text-white rounded-3xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-3 shadow-2xl transform hover:scale-105 disabled:hover:scale-100 font-bold text-lg border-2 border-gray-400"
+                className="px-8 py-4 bg-gradient-to-r from-gray-700 via-gray-800 to-gray-900 hover:from-gray-800 hover:via-gray-900 hover:to-black text-white rounded-3xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-3D00 flex items-center gap-3 shadow-2xl transform hover:scale-105 disabled:hover:scale-100 font-bold text-lg border-2 border-gray-400"
               >
                 <Send className="w-6 h-6" />
                 <span>Analyze</span>
