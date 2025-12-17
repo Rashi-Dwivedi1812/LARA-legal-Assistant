@@ -1,10 +1,9 @@
-import os
 import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# --- Import agent router ---
+# --- Import your agent router ---
 from agent.router import route_query
 from db import (
     save_thread,
@@ -19,22 +18,28 @@ from db import (
 # ============================
 
 app = FastAPI(
-    title="L.A.R.A Backend API",
+    title="L.A.R.A. Backend API",
     description="API for the Legal Analysis & Research Assistant",
     version="1.0.0",
 )
 
 # ============================
-# 2. CORS CONFIGURATION
+# 2. CORS CONFIGURATION (FIXED)
 # ============================
 
-# NOTE:
-# - "*" is acceptable for demo/resume deployment
-# - Lock this down later for production
+# IMPORTANT:
+# - 5174 is your frontend port
+# - both localhost and 127.0.0.1 MUST be allowed
+# - exact match is required by browser
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,11 +79,15 @@ class SaveThreadRequest(BaseModel):
 # ============================
 
 @app.get("/")
-def health_check():
-    return {"status": "L.A.R.A backend is running"}
+def read_root():
+    return {"message": "LARA backend is running."}
+
 
 @app.post("/process_query", response_model=QueryResponse)
 async def process_legal_query(request: QueryRequest):
+    """
+    Main endpoint called by frontend
+    """
     try:
         result = route_query(
             role=request.role,
@@ -88,10 +97,10 @@ async def process_legal_query(request: QueryRequest):
 
         final_analysis = result.get(
             "final_analysis",
-            "No analysis could be generated.",
+            "Sorry, no analysis could be generated.",
         )
 
-        # Save chat history
+        # Save chat
         save_message(request.thread_id, "user", request.user_query)
         save_message(request.thread_id, "bot", final_analysis)
 
@@ -102,23 +111,28 @@ async def process_legal_query(request: QueryRequest):
 
     except Exception as e:
         print("ERROR:", e)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
 
 
 @app.post("/get_chat_history")
 async def get_chat_history(request: ChatHistoryRequest):
     try:
-        return {"threads": get_user_threads(request.user_id)}
+        threads = get_user_threads(request.user_id)
+        return {"threads": threads}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch chat history")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/get_thread_messages")
 async def get_thread_messages_endpoint(request: ThreadMessagesRequest):
     try:
-        return {"messages": get_thread_messages(request.thread_id)}
+        messages = get_thread_messages(request.thread_id)
+        return {"messages": messages}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch messages")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/save_thread")
@@ -127,7 +141,7 @@ async def save_thread_endpoint(request: SaveThreadRequest):
         save_thread(request.user_id, request.thread_id, request.title)
         return {"message": "Thread saved successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to save thread")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/delete_thread/{thread_id}")
@@ -136,18 +150,18 @@ async def delete_thread_endpoint(thread_id: str):
         delete_thread(thread_id)
         return {"message": "Thread deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to delete thread")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================
-# 5. ENTRY POINT (LOCAL ONLY)
+# 5. LOCAL SERVER ENTRY POINT
 # ============================
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 8000)),
+        port=8000,
+        reload=True,
     )
