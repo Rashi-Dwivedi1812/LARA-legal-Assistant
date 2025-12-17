@@ -5,20 +5,24 @@
 
 Inspired by the concept of **autonomous legal research agents**, L.A.R.A automates the end-to-end process — transforming user queries into precise legal search terms, retrieving authoritative data from multiple sources, and generating a **structured, citable legal analysis** that is **self-evaluated with a real-time confidence score.**
 
-The system uses **LangGraph** for modular agent orchestration and **Retrieval-Augmented Generation (RAG)** to combine internal legal corpora with live web data.
+The system uses **LangGraph** for modular agent orchestration and **Retrieval-Augmented Generation (RAG)** to combine internal legal corpora with live web data. The **lawyer mode** has been upgraded to a sophisticated multi-node LangGraph workflow with issue extraction, planning, iterative retrieval, drafting, and self-critique loops, ensuring high-quality, refined legal analysis.
 
 ---
 
 ## 🚀 Features
-- **Intelligent Query Rewriting:** Reformulates user-entered legal problems into precise, law-aware search queries.  
-- **Role-Based Agents:**  
-  - *Citizen Mode* – For general legal guidance and awareness.  
-  - *Lawyer Mode* – For in-depth case law analysis, statutory interpretation, and references.  
-- **Hybrid Data Retrieval:** Combines FAISS-based local document search with live web lookups via APIs (e.g., Tavily Search).  
-- **Iterative Legal Reasoning:** Dynamically refines its understanding of a legal problem and continues searching until it builds a complete answer.  
-- **Structured Legal Analysis:** Synthesizes case law, acts, and judgments into clear, referenced summaries.  
+- **Intelligent Query Rewriting:** Reformulates user-entered legal problems into precise, law-aware search queries.
+- **Role-Based Agents:**
+  - *Citizen Mode* – For general legal guidance and awareness using RAG with query rewriting and hybrid retrieval.
+  - *Lawyer Mode* – Advanced LangGraph workflow with issue extraction, planning, iterative retrieval, drafting, and self-critique for professional legal analysis.
+- **Hybrid Data Retrieval:** Combines FAISS-based local document search with live web lookups via APIs (e.g., Tavily Search).
+- **Iterative Multi-Agent Reasoning:** In lawyer mode, dynamically refines queries and answers through agent loops until quality thresholds are met.
+- **Structured Legal Analysis:** Synthesizes case law, acts, and judgments into clear, referenced summaries.
 - **Citation System:** Each generated report contains references to primary sources and acts for validation and research traceability.
 - **In-line Confidence Score:** Runs an in-line evaluator at the end of every query to provide a real-time "Confidence Score" (based on relevance, faithfulness, and clarity) directly to the user, building trust in the generated answer.
+- **Iterative Refinement:** Lawyer mode includes self-critique with semantic similarity checks, allowing up to 3 iterations for answer improvement.
+- **Test Endpoint:** Dedicated `/test_lawyer_agent` endpoint for direct testing of the lawyer agent workflow.
+- **Evaluation System:** Automated computation of precision@5, recall@5, citation correctness, hallucination rate, and answer consistency.
+- **ML Models:** Issue classifier (TF-IDF + LogisticRegression) and similarity model (Sentence-Transformers) for enhanced parsing and retrieval.
 
 ---
 
@@ -27,15 +31,20 @@ The system uses **LangGraph** for modular agent orchestration and **Retrieval-Au
 | Component | Technology Used |
 |------------|----------------|
 | **Backend Framework** | FastAPI (Python) |
-| **Agent Orchestration** | LangGraph |
+| **Agent Orchestration** | LangGraph (StateGraph with MemorySaver) |
+| **Lawyer Agent Nodes** | Issue Extractor, Planner, Retriever, Drafter, Critic, Finalizer |
 | **Embeddings + Search** | FAISS Vector Store |
 | **Language Model** | Groq (LLaMA 3.1–8B Instant) |
-| **Embeddings (Vector DB)** | FAISS Vector Store |
-| **Embeddings (Evaluation)** |	Sentence-Transformers |
+| **Embeddings (Vector DB)** | HuggingFace Embeddings (all-MiniLM-L6-v2) |
+| **Embeddings (Evaluation)** | Sentence-Transformers |
 | **APIs Used** | Tavily Search API |
 | **In-line Evaluation** | LLM-as-a-Judge (Groq) + Semantic Similarity |
-| **Frontend** | React + Tailwind CSS |
+| **Frontend** | React + Tailwind CSS + Clerk Auth |
 | **Environment Management** | `dotenv` |
+
+| **Evaluation Metrics** | Precision@5, Recall@5, Citation Correctness, Hallucination Rate, Answer Consistency |
+
+| **ML Models** | TF-IDF + LogisticRegression (Classifier), Sentence-Transformers (Similarity) |
 
 ---
 
@@ -44,11 +53,20 @@ The system uses **LangGraph** for modular agent orchestration and **Retrieval-Au
 ```
 L.A.R.A-Legal-Analysis-Research-Agent/
 │
-├── backend/  
+├── backend/
 │   ├── agent/
 │   │   ├── __init__.py
 │   │   ├── citizen_agent.py
-│   │   ├── lawyer_agent.py
+│   │   ├── lawyer_agent/
+│   │   │   ├── __init__.py
+│   │   │   ├── state.py
+│   │   │   ├── legacy_answer.py
+│   │   │   └── nodes/
+│   │   │       ├── issue_extractor.py
+│   │   │       ├── planner.py
+│   │   │       ├── retriever.py
+│   │   │       ├── drafter.py
+│   │   │       └── critic.py
 │   │   └── router.py
 │   │
 │   ├── data/
@@ -70,7 +88,7 @@ L.A.R.A-Legal-Analysis-Research-Agent/
 ├── frontend/
 │   ├── src/
 │   └── index.html
-│   
+│
 ├── .gitignore
 └── README.md
 
@@ -110,13 +128,22 @@ L.A.R.A-Legal-Analysis-Research-Agent/
     ```
 
 5. **Run the Backend**
-   ```
-   uvicorn app:app --reload
-   ```
-   Your FastAPI backend will now be available at:
-   ```
-   http://127.0.0.1:8000
-   ```
+    ```
+    cd backend
+    python app.py
+    ```
+    Your FastAPI backend will now be available at:
+    ```
+    http://localhost:8000
+    ```
+
+6. **Test the Lawyer Agent (Optional)**
+    You can test the new lawyer agent directly using the `/test_lawyer_agent` endpoint:
+    ```bash
+    curl -X POST "http://localhost:8000/test_lawyer_agent" \
+    -H "Content-Type: application/json" \
+    -d '{"user_query": "What are the legal implications of a contract breach?", "role": "lawyer", "thread_id": "test123"}'
+    ```
 
 ## 💻 Frontend (React)
 
@@ -125,13 +152,15 @@ L.A.R.A-Legal-Analysis-Research-Agent/
     cd frontend
     npm install
     npm run dev
-
     ```
 
 2. **Access the UI**
-    ```bash
+    Open your browser and go to:
+    ```
     http://localhost:5173
     ```
+
+    The frontend includes user authentication via Clerk, chat history management, and role-based agent selection (Citizen or Lawyer).
 ---
 
 ## 📊 Example Queries

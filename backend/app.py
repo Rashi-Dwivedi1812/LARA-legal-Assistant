@@ -3,15 +3,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# --- Import your existing agent router ---
-# This assumes your 'agent' folder is in the same 'backend' directory
-# and your Python path is set up correctly.
+# --- Import your agent router ---
 from agent.router import route_query
-from db import save_thread, save_message, get_user_threads, get_thread_messages, delete_thread
+from db import (
+    save_thread,
+    save_message,
+    get_user_threads,
+    get_thread_messages,
+    delete_thread,
+)
 
-# ----------------------------
-#      1. INITIALIZATION
-# ----------------------------
+# ============================
+# 1. FASTAPI INITIALIZATION
+# ============================
 
 app = FastAPI(
     title="L.A.R.A. Backend API",
@@ -19,138 +23,145 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# --- Add CORS Middleware ---
-# This is crucial to allow your React frontend (running on a different port)
-# to communicate with this backend.
+# ============================
+# 2. CORS CONFIGURATION (FIXED)
+# ============================
+
+# IMPORTANT:
+# - 5174 is your frontend port
+# - both localhost and 127.0.0.1 MUST be allowed
+# - exact match is required by browser
+
 app.add_middleware(
     CORSMiddleware,
-    # Adjust allow_origins to your React app's URL in production
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# ----------------------------
-#      2. PYDANTIC MODELS
-# ----------------------------
-
-# These models define the expected structure of your API request body.
-# FastAPI uses them to validate incoming data and generate documentation.
+# ============================
+# 3. PYDANTIC MODELS
+# ============================
 
 class QueryRequest(BaseModel):
     user_query: str
     role: str
     thread_id: str
 
+
 class QueryResponse(BaseModel):
     final_analysis: str
     thread_id: str
 
+
 class ChatHistoryRequest(BaseModel):
     user_id: str
+
 
 class ThreadMessagesRequest(BaseModel):
     thread_id: str
 
+
 class SaveThreadRequest(BaseModel):
     user_id: str
     thread_id: str
-    title: str = None
+    title: str | None = None
 
 
-# ----------------------------
-#      3. API ENDPOINTS
-# ----------------------------
+# ============================
+# 4. API ENDPOINTS
+# ============================
 
 @app.get("/")
 def read_root():
-    """A simple endpoint to check if the server is running."""
-    return {"message": "Welcome to the L.A.R.A. Backend API"}
+    return {"message": "LARA backend is running."}
 
 
 @app.post("/process_query", response_model=QueryResponse)
 async def process_legal_query(request: QueryRequest):
     """
-    Receives a legal query from the frontend, processes it using the agent router,
-    and returns the final analysis.
+    Main endpoint called by frontend
     """
-    print(f"Received query for thread_id: {request.thread_id}")
     try:
-        # --- Call your core application logic ---
-        # This is the same function your Streamlit app was calling.
         result = route_query(
             role=request.role,
             user_query=request.user_query,
             thread_id=request.thread_id,
         )
 
-        # Extract the final analysis from the result dictionary
         final_analysis = result.get(
             "final_analysis",
-            "Sorry, I couldn't generate a final analysis."
+            "Sorry, no analysis could be generated.",
         )
 
-        # Save messages to database
-        save_message(request.thread_id, 'user', request.user_query)
-        save_message(request.thread_id, 'bot', final_analysis)
+        # Save chat
+        save_message(request.thread_id, "user", request.user_query)
+        save_message(request.thread_id, "bot", final_analysis)
 
         return QueryResponse(
             final_analysis=final_analysis,
-            thread_id=request.thread_id
+            thread_id=request.thread_id,
         )
 
     except Exception as e:
-        # If anything goes wrong in your agent, send back a detailed error
-        print(f"An error occurred: {e}")
+        print("ERROR:", e)
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while processing your request: {e}"
+            detail=str(e),
         )
+
 
 @app.post("/get_chat_history")
 async def get_chat_history(request: ChatHistoryRequest):
-    """Get all threads for a user."""
     try:
         threads = get_user_threads(request.user_id)
         return {"threads": threads}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching chat history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/get_thread_messages")
 async def get_thread_messages_endpoint(request: ThreadMessagesRequest):
-    """Get all messages for a thread."""
     try:
         messages = get_thread_messages(request.thread_id)
         return {"messages": messages}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching thread messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/save_thread")
 async def save_thread_endpoint(request: SaveThreadRequest):
-    """Save a thread."""
     try:
         save_thread(request.user_id, request.thread_id, request.title)
         return {"message": "Thread saved successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving thread: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.delete("/delete_thread/{thread_id}")
 async def delete_thread_endpoint(thread_id: str):
-    """Delete a thread and its messages."""
     try:
         delete_thread(thread_id)
         return {"message": "Thread deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting thread: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ----------------------------
-#      4. SERVER EXECUTION (for local testing)
-# ----------------------------
 
-# This part allows you to run the file directly with `python app.py` for testing,
-# but the standard way to run a FastAPI app is with Uvicorn.
+# ============================
+# 5. LOCAL SERVER ENTRY POINT
+# ============================
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
