@@ -36,3 +36,6 @@ orjson==3.11.3
 tenacity==9.1.2
 typing_extensions==4.15.0
 PyYAML==6.0.2
+
+langchain-huggingface==0.3.1
+langchain-tavily==0.1.5
