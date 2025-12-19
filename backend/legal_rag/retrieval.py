@@ -2,24 +2,53 @@
 
 import os
 from pathlib import Path
+from typing import TypedDict, Annotated, List, Any
+import operator
+
+from dotenv import load_dotenv
 from langchain_core.tools import tool
+from langchain_core.documents import Document
+from langchain_core.messages import BaseMessage
+from langchain_core.runnables import RunnableParallel
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_tavily import TavilySearch
-from langchain_core.runnables import RunnableParallel
-from langchain_core.documents import Document  # <-- NEW: Import Document
-from langchain_core.messages import BaseMessage  # <-- FIX: Import BaseMessage
-from typing import TypedDict, Annotated, List, Any
-import operator
-from dotenv import load_dotenv
 
-# Load .env from the backend directory
+# -------------------------
+# Load environment variables
+# -------------------------
 backend_dir = Path(__file__).resolve().parent.parent
-load_dotenv(backend_dir / '.env')
+load_dotenv(backend_dir / ".env")
+
+# -------------------------
+# GLOBAL LAZY-LOADED OBJECTS
+# -------------------------
+_embedding_model = None
+_faiss_db = None
+
+def get_embedding_model():
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/paraphrase-MiniLM-L3-v2"  # smaller model
+        )
+    return _embedding_model
+
+
+def get_faiss_db():
+    global _faiss_db
+    if _faiss_db is None:
+        FAISS_INDEX_PATH = "data/faiss_index"
+        _faiss_db = FAISS.load_local(
+            FAISS_INDEX_PATH,
+            get_embedding_model(),
+            allow_dangerous_deserialization=True,
+        )
+    return _faiss_db
 
 
 # -------------------------
-# Agent State (updated to match new structure)
+# Agent State
 # -------------------------
 class AgentState(TypedDict):
     query: str
@@ -29,45 +58,33 @@ class AgentState(TypedDict):
     final_analysis: str
     research_complete: bool
     chat_history: List[BaseMessage]
-    sources: Annotated[List[dict], operator.add]  # <-- NEW: To store source metadata
+    sources: Annotated[List[dict], operator.add]
 
 
 # -------------------------
-# FAISS Legal DB Tool (Updated to return Document objects)
+# FAISS Legal DB Tool (LAZY SAFE)
 # -------------------------
 @tool
 def legal_database_search(query: str) -> List[Document]:
     """
     Search against a pre-indexed FAISS vector store of Indian laws and cases.
-    Returns a list of Document objects with page content and metadata.
+    Returns a list of Document objects.
     """
     try:
-        FAISS_INDEX_PATH = "data/faiss_index"
-        embedding_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
-        db = FAISS.load_local(
-            FAISS_INDEX_PATH, embedding_model, allow_dangerous_deserialization=True
-        )
-
+        db = get_faiss_db()
         retrieved_docs = db.similarity_search_with_score(query, k=5)
-
-        # You'll need to ensure your FAISS index stores metadata for each document,
-        # such as the file name, case name, or source.
-
-        return [doc[0] for doc in retrieved_docs]  # Return list of Document objects
+        return [doc[0] for doc in retrieved_docs]
 
     except FileNotFoundError:
-        return [Document(page_content=f"FAISS index not found at {FAISS_INDEX_PATH}.")]
+        return [Document(page_content="FAISS index not found.")]
     except Exception as e:
         return [Document(page_content=f"Error during legal database search: {e}")]
 
 
 # -------------------------
-# Research Function (Updated to handle structured output and sources)
+# Research Function
 # -------------------------
 def perform_research(state: AgentState) -> dict:
-    """Performs both FAISS and web searches in parallel."""
     print("---PERFORMING RESEARCH---")
     query = state["query"]
 
@@ -75,7 +92,6 @@ def perform_research(state: AgentState) -> dict:
     if not tavily_api_key:
         raise ValueError("TAVILY_API_KEY environment variable not set.")
 
-    # This is the updated TavilySearch class name
     web_search_tool = TavilySearch(max_results=5, tavily_api_key=tavily_api_key)
 
     rag_chain = RunnableParallel(
@@ -88,31 +104,20 @@ def perform_research(state: AgentState) -> dict:
     results = rag_chain.invoke({"query": query})
 
     faiss_docs = results.get("faiss_search_results", [])
-    # This is now a list of strings
-    web_results_list_of_strings = results.get("web_search_results", [])
+    web_results = results.get("web_search_results", [])
 
-    # --- THIS IS THE CORRECTED LOGIC ---
     sources = []
-
-    # Process FAISS sources
     faiss_content = ""
+
     for doc in faiss_docs:
         faiss_content += doc.page_content + "\n\n"
         if doc.metadata:
             sources.append({"type": "document", "metadata": doc.metadata})
 
-    # Process web sources (now correctly handles a list of strings)
     web_content = ""
-    for result_string in web_results_list_of_strings:
-        web_content += result_string + "\n\n"
-        # Since we only get the content string, we can't extract a separate URL/title.
-        # We'll just add the content as the source.
-        sources.append(
-            {
-                "type": "web",
-                "content": result_string,
-            }
-        )
+    for result in web_results:
+        web_content += result + "\n\n"
+        sources.append({"type": "web", "content": result})
 
     print("---RESEARCH COMPLETE---")
 
