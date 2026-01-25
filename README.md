@@ -2,7 +2,7 @@
 
 **L.A.R.A (Legal Analysis & Research Assistant)** is a **deployed, AI-powered legal research system for Indian law** that automates issue identification, case retrieval, statutory analysis, and structured legal drafting using a **multi-agent RAG architecture**.
 
-🔗 **Live Demo:** <DEPLOYED_APP_URL>  
+🔗 **Live Streamlit Demo:** <https://lara-legal-assistant.streamlit.app/>  
 
 
 ## 🧠 Overview
