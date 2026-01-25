@@ -37,10 +37,8 @@ tenacity==9.1.2
 typing_extensions==4.15.0
 PyYAML==6.0.2
 
-<<<<<<< HEAD
 langchain-huggingface==0.3.1
 langchain-tavily==0.1.5
-=======
+
 # Streamlit for UI
 streamlit==1.43.2
->>>>>>> d4b902a (add streamlit app)
