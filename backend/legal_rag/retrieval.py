@@ -70,6 +70,7 @@ def legal_database_search(query: str) -> List[Document]:
     Search against a pre-indexed FAISS vector store of Indian laws and cases.
     Returns a list of Document objects.
     """
+    global faiss_db
     try:
         db = get_faiss_db()
         retrieved_docs = db.similarity_search_with_score(query, k=5)

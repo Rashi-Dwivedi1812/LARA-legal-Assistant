@@ -165,6 +165,10 @@ Run backend:
 ```
 python app.py
 ```
+To run the Streamlit UI (standalone alternative to React frontend):
+```
+streamlit run backend/streamlit_app.py
+```
 Frontend:
 ```
 cd frontend
